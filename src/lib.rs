@@ -27,9 +27,9 @@ trait RepositoryTargetReader<Target> {
 }
 
 #[async_trait]
-trait RepositoryAllReader<Target> {
+trait RepositoryAllReader<Id> {
     type QueryRes: Serialize;
     type QueryErr: Error;
 
-    async fn read_all(&self) -> Result<Vec<Self::QueryRes>, Self::QueryErr>;
+    async fn read_all(&self, id: Id) -> Result<Self::QueryRes, Self::QueryErr>;
 }
