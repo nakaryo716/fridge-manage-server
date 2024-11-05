@@ -1,0 +1,6 @@
+MYSQL_ROOT_PASSWORD = password
+MYSQL_ALLOW_EMPTY_PASSWORD = false
+MYSQL_RANDOM_ROOT_PASSWORD = false
+MYSQL_USER = mysql_user
+MYSQL_PASSWORD = user_password
+MYSQL_DATABASE = fridge_app_db
