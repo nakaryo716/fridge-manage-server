@@ -1,0 +1,29 @@
+services:
+  # api:
+  #   image: rust:1.82.0-bookworm
+  #   build:
+  #     context: .
+  #   volumes:
+  #     - .:/app
+  #   working_dir: /app
+  #   command: cargo run
+  #   ports:
+  #     - 8080:8080
+  #   networks:
+  #     - fridge-network
+  #   depends_on:
+  #     - db
+  db:
+    image: mysql:8.0.40-bookworm
+    env_file:
+      - ./env/mysql_config
+    volumes:
+      - fridge-volume:/var/lib/mysql
+    ports:
+      - 13306:3306
+    networks:
+      - fridge-network
+networks:
+  fridge-network:
+volumes:
+  fridge-volume:
