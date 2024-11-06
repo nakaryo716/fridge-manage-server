@@ -359,10 +359,12 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "dotenvy",
  "http-body-util",
  "hyper",
  "hyper-util",
  "mime",
+ "rand",
  "serde",
  "serde_json",
  "sqlx",
