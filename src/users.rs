@@ -57,7 +57,7 @@ impl RepositoryTargetReader<String> for UserRepository {
             r#"
                 SELECT user_id, user_name
                 FROM user_table
-                WHERE user_id = $1
+                WHERE user_id = ?
             "#,
         )
         .bind(id)
@@ -77,7 +77,7 @@ impl<'a> RepositoryWriter<'a, '_, User, String> for UserRepository {
         sqlx::query(
             r#"
                 INSERT INTO user_table
-                (user_id, user_name, mail, password) VALUES ($1, $2, $3, $4)
+                (user_id, user_name, mail, password) VALUES (?, ?, ?, ?)
             "#,
         )
         .bind(payload.user_id.to_owned())
@@ -97,10 +97,10 @@ impl<'a> RepositoryWriter<'a, '_, User, String> for UserRepository {
             r#"
                 UPDATE user_table
                 SET
-                user_name = $1,
-                mail = $2,
-                password = $3
-                WHERE user_id = $4
+                user_name = ?,
+                mail = ?,
+                password = ?
+                WHERE user_id = ?
             "#,
         )
         .bind(payload.user_name.to_owned())
@@ -118,7 +118,7 @@ impl<'a> RepositoryWriter<'a, '_, User, String> for UserRepository {
         sqlx::query(
             r#"
                 DELETE FROM user_table
-                WHERE user_id = $1
+                WHERE user_id = ?
             "#,
         )
         .bind(id.to_owned())
@@ -134,11 +134,14 @@ mod test {
     use rand::random;
     use sqlx::{query_as, MySqlPool};
 
-    use crate::{users::{CreateUserPayload, User}, RepositoryTargetReader, RepositoryWriter};
+    use crate::{
+        users::{CreateUserPayload, User},
+        RepositoryTargetReader, RepositoryWriter,
+    };
 
     use super::UserRepository;
 
-    async fn set_up_db() -> UserRepository{
+    async fn set_up_db() -> UserRepository {
         let db_url = dotenvy::var("DATABASE_URL").unwrap();
         println!("{}", db_url);
         let pool = MySqlPool::connect(&db_url).await.unwrap();
@@ -171,12 +174,12 @@ mod test {
             r#"
                 SELECT * FROM user_table
                 WHERE user_id = ?
-            "#
+            "#,
         )
-            .bind(id)
-            .fetch_one(&repo.pool)
-            .await
-            .map_err(|e| e)?;
+        .bind(id)
+        .fetch_one(&repo.pool)
+        .await
+        .map_err(|e| e)?;
         Ok(res)
     }
 
@@ -200,7 +203,9 @@ mod test {
         repo.insert(&new_user).await.unwrap();
 
         let update_user = update_user(new_user);
-        repo.update(&update_user.user_id, &update_user).await.unwrap();
+        repo.update(&update_user.user_id, &update_user)
+            .await
+            .unwrap();
 
         let modified_full_data = query_full_data(&update_user.user_id).await.unwrap();
         assert_eq!(modified_full_data, update_user);
