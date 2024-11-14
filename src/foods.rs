@@ -26,7 +26,7 @@ impl Food {
             food_id: Uuid::new_v4().to_string(),
             food_name: payload.food_name,
             exp: payload.exp,
-            user_id: user.user_id
+            user_id: user.user_id,
         }
     }
 }
@@ -40,34 +40,40 @@ pub struct FoodsRepository {
     pool: Pool<MySql>,
 }
 
-#[derive(Debug, Clone, Error)]
-pub enum FoodsError {
-    #[error("Not found")]
-    NotFound
-}
-
-#[async_trait]
-impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository{
-    type Output = Food;
-    type Error = FoodsError;
-
-    async fn insert(&self, payload: &Food) -> Result<Self::Output, Self::Error> {
+impl FoodsRepository {
+    async fn excute_insert_query(&self, payload: &Food) -> Result<(), FoodsError> {
         query(
             r#"
                 INSERT INTO food_table
                 (food_id, food_name, exp, user_id)
                 VALUES (?, ?, ?, ?)
-            "#
+            "#,
         )
-            .bind(&payload.food_id)
-            .bind(&payload.food_name)
-            .bind(&payload.exp)
-            .bind(&payload.user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
+        .bind(&payload.food_id)
+        .bind(&payload.food_name)
+        .bind(payload.exp)
+        .bind(&payload.user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
+        Ok(())
+    }
+}
 
-        let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
+#[derive(Debug, Clone, Error)]
+pub enum FoodsError {
+    #[error("Not found")]
+    NotFound,
+}
+
+#[async_trait]
+impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository {
+    type Output = Food;
+    type Error = FoodsError;
+
+    async fn insert(&self, payload: &Food) -> Result<Self::Output, Self::Error> {
+        self.excute_insert_query(payload).await?;
+        let query_res = self.read(&payload.food_id).await?;
         Ok(query_res)
     }
 
@@ -78,36 +84,36 @@ impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository{
                 SET
                 food_name = ?, exp = ?
                 WHERE user_id = ?
-            "#
+            "#,
         )
-            .bind(&payload.food_name)
-            .bind(&payload.exp)
-            .bind(&payload.user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
+        .bind(&payload.food_name)
+        .bind(&payload.exp)
+        .bind(&payload.user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
 
         let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
         Ok(query_res)
     }
-    
+
     async fn delete(&self, id: &'a String) -> Result<(), Self::Error> {
         query(
             r#"
                 DELETE FROM food_table
                 WHERE food_id = ?
-            "#
+            "#,
         )
-            .bind(id)
-            .execute(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl RepositoryTargetReader<String> for FoodsRepository{
+impl RepositoryTargetReader<String> for FoodsRepository {
     type QueryRes = Food;
     type QueryErr = FoodsError;
 
@@ -117,18 +123,18 @@ impl RepositoryTargetReader<String> for FoodsRepository{
                 SELECT food_id, food_name, exp, user_id
                 FROM food_table
                 WHERE food_id = ?
-            "#
+            "#,
         )
-            .bind(id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
         Ok(query_res)
     }
 }
 
 #[async_trait]
-impl RepositoryAllReader<String> for FoodsRepository{
+impl RepositoryAllReader<String> for FoodsRepository {
     type QueryRes = AllFoods;
     type QueryErr = FoodsError;
 
@@ -138,12 +144,12 @@ impl RepositoryAllReader<String> for FoodsRepository{
                 SELECT food_id, food_name, exp, user_id
                 FROM food_table
                 WHERE user_id = ?
-            "#
+            "#,
         )
-            .bind(id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
         Ok(AllFoods { foods: query_res })
     }
 }
