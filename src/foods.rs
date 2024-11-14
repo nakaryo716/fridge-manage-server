@@ -73,6 +73,20 @@ impl FoodsRepository {
         .map_err(|_e| FoodsError::NotFound)
     }
 
+    async fn excute_query_all(&self, user_id: &str) -> Result<Vec<Food>, FoodsError> {
+        query_as::<_, Food>(
+            r#"
+                SELECT food_id, food_name, exp, user_id
+                FROM food_table
+                WHERE user_id = ?
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)
+    }
+
     async fn excute_update_query(&self, payload: &Food) -> Result<(), FoodsError> {
         query(
             r#"
@@ -151,17 +165,7 @@ impl RepositoryAllReader<String> for FoodsRepository {
     type QueryErr = FoodsError;
 
     async fn read_all(&self, id: String) -> Result<Self::QueryRes, Self::QueryErr> {
-        let query_res: Vec<Food> = query_as(
-            r#"
-                SELECT food_id, food_name, exp, user_id
-                FROM food_table
-                WHERE user_id = ?
-            "#,
-        )
-        .bind(id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|_e| FoodsError::NotFound)?;
-        Ok(AllFoods { foods: query_res })
+        let foods = self.excute_query_all(&id).await?;
+        Ok(AllFoods { foods })
     }
 }
