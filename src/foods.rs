@@ -26,7 +26,7 @@ impl Food {
             food_id: Uuid::new_v4().to_string(),
             food_name: payload.food_name,
             exp: payload.exp,
-            user_id: user.user_id
+            user_id: user.user_id,
         }
     }
 }
@@ -40,110 +40,132 @@ pub struct FoodsRepository {
     pool: Pool<MySql>,
 }
 
-#[derive(Debug, Clone, Error)]
-pub enum FoodsError {
-    #[error("Not found")]
-    NotFound
-}
-
-#[async_trait]
-impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository{
-    type Output = Food;
-    type Error = FoodsError;
-
-    async fn insert(&self, payload: &Food) -> Result<Self::Output, Self::Error> {
+impl FoodsRepository {
+    async fn execute_insert_query(&self, payload: &Food) -> Result<(), FoodsError> {
         query(
             r#"
                 INSERT INTO food_table
                 (food_id, food_name, exp, user_id)
                 VALUES (?, ?, ?, ?)
-            "#
+            "#,
         )
-            .bind(&payload.food_id)
-            .bind(&payload.food_name)
-            .bind(&payload.exp)
-            .bind(&payload.user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
-
-        let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
-        Ok(query_res)
+        .bind(&payload.food_id)
+        .bind(&payload.food_name)
+        .bind(payload.exp)
+        .bind(&payload.user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
+        Ok(())
     }
 
-    async fn update(&self, _id: &'a String, payload: &Food) -> Result<Self::Output, Self::Error> {
+    async fn execute_query(&self, id: &str) -> Result<Food, FoodsError> {
+        query_as::<_, Food>(
+            r#"
+                SELECT food_id, food_name, exp, user_id
+                FROM food_table
+                WHERE food_id = ?
+            "#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)
+    }
+
+    async fn execute_query_all(&self, user_id: &str) -> Result<Vec<Food>, FoodsError> {
+        query_as::<_, Food>(
+            r#"
+                SELECT food_id, food_name, exp, user_id
+                FROM food_table
+                WHERE user_id = ?
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)
+    }
+
+    async fn execute_update_query(&self, payload: &Food) -> Result<(), FoodsError> {
         query(
             r#"
                 UPDATE food_table
                 SET
                 food_name = ?, exp = ?
-                WHERE user_id = ?
-            "#
+                WHERE food_id = ?
+            "#,
         )
-            .bind(&payload.food_name)
-            .bind(&payload.exp)
-            .bind(&payload.user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
-
-        let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
-        Ok(query_res)
+        .bind(&payload.food_name)
+        .bind(&payload.exp)
+        .bind(&payload.food_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
+        Ok(())
     }
-    
-    async fn delete(&self, id: &'a String) -> Result<(), Self::Error> {
+
+    async fn execute_delete_query(&self, id: &str) -> Result<(), FoodsError> {
         query(
             r#"
                 DELETE FROM food_table
                 WHERE food_id = ?
-            "#
+            "#,
         )
-            .bind(id)
-            .execute(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum FoodsError {
+    #[error("Not found")]
+    NotFound,
+}
+
+#[async_trait]
+impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository {
+    type Output = Food;
+    type Error = FoodsError;
+
+    async fn insert(&self, payload: &Food) -> Result<Self::Output, Self::Error> {
+        self.execute_insert_query(payload).await?;
+        let query_res = self.read(&payload.food_id).await?;
+        Ok(query_res)
+    }
+
+    async fn update(&self, _id: &'a String, payload: &Food) -> Result<Self::Output, Self::Error> {
+        self.execute_update_query(payload).await?;
+        let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
+        Ok(query_res)
+    }
+
+    async fn delete(&self, id: &'a String) -> Result<(), Self::Error> {
+        self.execute_delete_query(id).await?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl RepositoryTargetReader<String> for FoodsRepository{
+impl RepositoryTargetReader<String> for FoodsRepository {
     type QueryRes = Food;
     type QueryErr = FoodsError;
 
     async fn read(&self, id: &String) -> Result<Self::QueryRes, Self::QueryErr> {
-        let query_res = query_as(
-            r#"
-                SELECT food_id, food_name, exp, user_id
-                FROM food_table
-                WHERE food_id = ?
-            "#
-        )
-            .bind(id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
-        Ok(query_res)
+        self.execute_query(id).await
     }
 }
 
 #[async_trait]
-impl RepositoryAllReader<String> for FoodsRepository{
+impl RepositoryAllReader<String> for FoodsRepository {
     type QueryRes = AllFoods;
     type QueryErr = FoodsError;
 
     async fn read_all(&self, id: String) -> Result<Self::QueryRes, Self::QueryErr> {
-        let query_res: Vec<Food> = query_as(
-            r#"
-                SELECT food_id, food_name, exp, user_id
-                FROM food_table
-                WHERE user_id = ?
-            "#
-        )
-            .bind(id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|_e| FoodsError::NotFound)?;
-        Ok(AllFoods { foods: query_res })
+        let foods = self.execute_query_all(&id).await?;
+        Ok(AllFoods { foods })
     }
 }
