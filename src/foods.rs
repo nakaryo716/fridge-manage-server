@@ -76,6 +76,20 @@ impl FoodsRepository {
         .map_err(|_e| FoodsError::NotFound)?;
         Ok(())
     }
+
+    async fn excute_delete_query(&self, id: &str) -> Result<(), FoodsError> {
+        query(
+            r#"
+                DELETE FROM food_table
+                WHERE food_id = ?
+            "#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Error)]
@@ -102,16 +116,7 @@ impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository {
     }
 
     async fn delete(&self, id: &'a String) -> Result<(), Self::Error> {
-        query(
-            r#"
-                DELETE FROM food_table
-                WHERE food_id = ?
-            "#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await
-        .map_err(|_e| FoodsError::NotFound)?;
+        self.excute_delete_query(id).await?;
         Ok(())
     }
 }
