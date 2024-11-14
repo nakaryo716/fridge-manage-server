@@ -59,6 +59,20 @@ impl FoodsRepository {
         Ok(())
     }
 
+    async fn excute_query(&self, id: &str) -> Result<Food, FoodsError> {
+        query_as::<_, Food>(
+            r#"
+                SELECT food_id, food_name, exp, user_id
+                FROM food_table
+                WHERE food_id = ?
+            "#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)
+    }
+
     async fn excute_update_query(&self, payload: &Food) -> Result<(), FoodsError> {
         query(
             r#"
@@ -127,18 +141,7 @@ impl RepositoryTargetReader<String> for FoodsRepository {
     type QueryErr = FoodsError;
 
     async fn read(&self, id: &String) -> Result<Self::QueryRes, Self::QueryErr> {
-        let query_res = query_as(
-            r#"
-                SELECT food_id, food_name, exp, user_id
-                FROM food_table
-                WHERE food_id = ?
-            "#,
-        )
-        .bind(id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|_e| FoodsError::NotFound)?;
-        Ok(query_res)
+        self.excute_query(id).await
     }
 }
 
