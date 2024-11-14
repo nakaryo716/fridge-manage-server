@@ -58,6 +58,24 @@ impl FoodsRepository {
         .map_err(|_e| FoodsError::NotFound)?;
         Ok(())
     }
+
+    async fn excute_update_query(&self, payload: &Food) -> Result<(), FoodsError> {
+        query(
+            r#"
+                UPDATE food_table
+                SET
+                food_name = ?, exp = ?
+                WHERE user_id = ?
+            "#,
+        )
+        .bind(&payload.food_name)
+        .bind(&payload.exp)
+        .bind(&payload.user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| FoodsError::NotFound)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Error)]
@@ -78,21 +96,7 @@ impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository {
     }
 
     async fn update(&self, _id: &'a String, payload: &Food) -> Result<Self::Output, Self::Error> {
-        query(
-            r#"
-                UPDATE food_table
-                SET
-                food_name = ?, exp = ?
-                WHERE user_id = ?
-            "#,
-        )
-        .bind(&payload.food_name)
-        .bind(&payload.exp)
-        .bind(&payload.user_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|_e| FoodsError::NotFound)?;
-
+        self.excute_update_query(payload).await?;
         let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
         Ok(query_res)
     }
