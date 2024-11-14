@@ -93,12 +93,12 @@ impl FoodsRepository {
                 UPDATE food_table
                 SET
                 food_name = ?, exp = ?
-                WHERE user_id = ?
+                WHERE food_id = ?
             "#,
         )
         .bind(&payload.food_name)
         .bind(&payload.exp)
-        .bind(&payload.user_id)
+        .bind(&payload.food_id)
         .execute(&self.pool)
         .await
         .map_err(|_e| FoodsError::NotFound)?;
