@@ -41,7 +41,7 @@ pub struct FoodsRepository {
 }
 
 impl FoodsRepository {
-    async fn excute_insert_query(&self, payload: &Food) -> Result<(), FoodsError> {
+    async fn execute_insert_query(&self, payload: &Food) -> Result<(), FoodsError> {
         query(
             r#"
                 INSERT INTO food_table
@@ -59,7 +59,7 @@ impl FoodsRepository {
         Ok(())
     }
 
-    async fn excute_query(&self, id: &str) -> Result<Food, FoodsError> {
+    async fn execute_query(&self, id: &str) -> Result<Food, FoodsError> {
         query_as::<_, Food>(
             r#"
                 SELECT food_id, food_name, exp, user_id
@@ -73,7 +73,7 @@ impl FoodsRepository {
         .map_err(|_e| FoodsError::NotFound)
     }
 
-    async fn excute_query_all(&self, user_id: &str) -> Result<Vec<Food>, FoodsError> {
+    async fn execute_query_all(&self, user_id: &str) -> Result<Vec<Food>, FoodsError> {
         query_as::<_, Food>(
             r#"
                 SELECT food_id, food_name, exp, user_id
@@ -87,7 +87,7 @@ impl FoodsRepository {
         .map_err(|_e| FoodsError::NotFound)
     }
 
-    async fn excute_update_query(&self, payload: &Food) -> Result<(), FoodsError> {
+    async fn execute_update_query(&self, payload: &Food) -> Result<(), FoodsError> {
         query(
             r#"
                 UPDATE food_table
@@ -105,7 +105,7 @@ impl FoodsRepository {
         Ok(())
     }
 
-    async fn excute_delete_query(&self, id: &str) -> Result<(), FoodsError> {
+    async fn execute_delete_query(&self, id: &str) -> Result<(), FoodsError> {
         query(
             r#"
                 DELETE FROM food_table
@@ -132,19 +132,19 @@ impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository {
     type Error = FoodsError;
 
     async fn insert(&self, payload: &Food) -> Result<Self::Output, Self::Error> {
-        self.excute_insert_query(payload).await?;
+        self.execute_insert_query(payload).await?;
         let query_res = self.read(&payload.food_id).await?;
         Ok(query_res)
     }
 
     async fn update(&self, _id: &'a String, payload: &Food) -> Result<Self::Output, Self::Error> {
-        self.excute_update_query(payload).await?;
+        self.execute_update_query(payload).await?;
         let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
         Ok(query_res)
     }
 
     async fn delete(&self, id: &'a String) -> Result<(), Self::Error> {
-        self.excute_delete_query(id).await?;
+        self.execute_delete_query(id).await?;
         Ok(())
     }
 }
@@ -155,7 +155,7 @@ impl RepositoryTargetReader<String> for FoodsRepository {
     type QueryErr = FoodsError;
 
     async fn read(&self, id: &String) -> Result<Self::QueryRes, Self::QueryErr> {
-        self.excute_query(id).await
+        self.execute_query(id).await
     }
 }
 
@@ -165,7 +165,7 @@ impl RepositoryAllReader<String> for FoodsRepository {
     type QueryErr = FoodsError;
 
     async fn read_all(&self, id: String) -> Result<Self::QueryRes, Self::QueryErr> {
-        let foods = self.excute_query_all(&id).await?;
+        let foods = self.execute_query_all(&id).await?;
         Ok(AllFoods { foods })
     }
 }
