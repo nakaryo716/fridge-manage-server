@@ -172,7 +172,8 @@ mod test {
         let repo = set_up_db().await;
         let res = query_as(
             r#"
-                SELECT * FROM user_table
+                SELECT user_id, user_name, mail, password
+                FROM user_table
                 WHERE user_id = ?
             "#,
         )
