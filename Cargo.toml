@@ -4,13 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+argon2 = { version = "0.5.3", features = ["password-hash"] }
 async-trait = "0.1.83"
+base64 = "0.22.1"
 chrono = { version = "0.4.38", features = ["serde"] }
 dotenvy = "0.15.7"
 http-body-util = "0.1.2"
 hyper = "1.5.0"
 hyper-util = { version = "0.1.8", features = ["full"] }
 mime = "0.3.17"
+password-hash = { version = "0.5.0", features = ["rand_core"] }
 rand = "0.8.5"
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"

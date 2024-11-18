@@ -4,7 +4,7 @@ use sqlx::{prelude::FromRow, MySql, Pool};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{RepositoryTargetReader, RepositoryWriter};
+use crate::{util::HashFunc, RepositoryTargetReader, RepositoryWriter};
 
 pub struct CreateUserPayload {
     pub user_name: String,
@@ -21,13 +21,16 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(payload: CreateUserPayload) -> Self {
-        Self {
+    pub(crate) fn new(
+        payload: CreateUserPayload,
+        hasher: Box<dyn HashFunc>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(Self {
             user_id: Uuid::new_v4().to_string(),
             user_name: payload.user_name,
             mail: payload.mail,
-            password: payload.password,
-        }
+            password: hasher.call(&payload.password)?,
+        })
     }
 }
 
@@ -142,7 +145,7 @@ impl<'a> RepositoryWriter<'a, '_, User, String> for UserRepository {
     }
 
     async fn update(&self, _id: &'a String, payload: &User) -> Result<Self::Output, Self::Error> {
-       self.execute_update_query(payload).await?;
+        self.execute_update_query(payload).await?;
         let query_res = self.read(&payload.user_id).await?;
         Ok(query_res)
     }
@@ -158,6 +161,7 @@ mod test {
 
     use crate::{
         users::{CreateUserPayload, User},
+        util::default_hash_password,
         RepositoryTargetReader, RepositoryWriter,
     };
 
@@ -177,7 +181,9 @@ mod test {
             mail: format!("test_user_mail_{}@mail.com", num),
             password: format!("test_user_pass_{}", num),
         };
-        User::new(payload)
+
+        let hasher = Box::new(default_hash_password);
+        User::new(payload, hasher).unwrap()
     }
 
     fn update_user(user: User) -> User {
