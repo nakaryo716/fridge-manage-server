@@ -7,6 +7,7 @@ use sqlx::{mysql::MySqlRow, FromRow};
 pub mod auth;
 pub mod foods;
 pub mod users;
+pub mod util;
 
 #[async_trait]
 trait RepositoryWriter<'a, 'r, Payload, Target>: RepositoryTargetReader<Target> {
