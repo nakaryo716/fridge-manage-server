@@ -1,4 +1,4 @@
-use argon2::{Argon2, PasswordHasher};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use password_hash::{Salt, SaltString};
 use thiserror::Error;
@@ -39,13 +39,28 @@ pub(crate) enum HashError {
     Hash,
 }
 
+fn verify_pass(password: &str, password_hash: &str) -> Result<(), HashError> {
+    let password_hash = PasswordHash::try_from(password_hash).map_err(|_e| HashError::Hash)?;
+    Argon2::default()
+        .verify_password(password.as_bytes(), &password_hash)
+        .map_err(|_e| HashError::Hash)
+}
+
 #[cfg(test)]
 mod test {
-    use super::default_hash_password;
+    use super::{default_hash_password, verify_pass};
 
     #[test]
     fn test_hash_password() {
         let password = "test_password";
         (default_hash_password(password)).unwrap();
+    }
+
+    #[test]
+    fn test_hash_verify() {
+        let password = "test_password2";
+        let password_hash = (default_hash_password(password)).unwrap();
+
+        verify_pass(password, &password_hash).expect("should same pass");
     }
 }
