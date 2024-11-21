@@ -10,7 +10,7 @@ pub mod users;
 pub mod util;
 
 #[async_trait]
-trait RepositoryWriter<'a, 'r, Payload, Target>: RepositoryTargetReader<Target> {
+trait RepositoryWriter<'a, 'r, Payload, Target>: RepositoryTargetReader<'a, Target> {
     type Output: Serialize + FromRow<'r, MySqlRow>;
     type Error: Error;
 
@@ -20,11 +20,11 @@ trait RepositoryWriter<'a, 'r, Payload, Target>: RepositoryTargetReader<Target> 
 }
 
 #[async_trait]
-trait RepositoryTargetReader<Target> {
+trait RepositoryTargetReader<'a, Target> {
     type QueryRes: Serialize;
     type QueryErr: Error;
 
-    async fn read(&self, id: &Target) -> Result<Self::QueryRes, Self::QueryErr>;
+    async fn read(&self, id: &'a Target) -> Result<Self::QueryRes, Self::QueryErr>;
 }
 
 #[async_trait]
