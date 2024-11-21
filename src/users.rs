@@ -8,7 +8,7 @@ use crate::util::HashFunc;
 pub mod repo;
 
 #[derive(Debug, Clone, Serialize, FromRow, PartialEq)]
-pub struct UserId(String);
+pub struct UserId(pub(crate) String);
 
 impl From<String> for UserId {
     fn from(value: String) -> Self {
