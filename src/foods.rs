@@ -1,33 +1,80 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use sqlx::{query, query_as, types::chrono::NaiveDate, FromRow, MySql, Pool};
+use sqlx::{mysql::MySqlRow, query, query_as, types::chrono::NaiveDate, FromRow, MySql, Pool, Row};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{users::PubUserInfo, RepositoryAllReader, RepositoryTargetReader, RepositoryWriter};
+use crate::{users::{PubUserInfo, UserId}, RepositoryAllReader, RepositoryTargetReader, RepositoryWriter};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FoodId(String);
+
+impl From<FoodId> for  String {
+    fn from(value: FoodId) -> Self {
+        value.0
+    }
+}
+
+impl<T> From<T> for FoodId 
+where 
+    T: ToString
+{
+    fn from(value: T) -> Self {
+        Self(value.to_string())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FoodName(String);
+
+impl From<FoodName> for  String {
+    fn from(value: FoodName) -> Self {
+        value.0
+    }
+}
+
+impl<T> From<T> for FoodName 
+where
+    T: ToString,
+{
+    fn from(value: T) -> Self {
+        Self(value.to_string())
+    }
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateFoodPayload {
-    food_name: String,
+    food_name: FoodName,
     exp: NaiveDate,
 }
 
-#[derive(Debug, Clone, Serialize, FromRow)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Food {
-    food_id: String,
-    food_name: String,
+    food_id: FoodId,
+    food_name: FoodName,
     exp: NaiveDate,
-    user_id: String,
+    user_id: UserId,
 }
 
 impl Food {
     pub fn new(payload: CreateFoodPayload, user: PubUserInfo) -> Self {
         Self {
-            food_id: Uuid::new_v4().to_string(),
+            food_id: FoodId::from(Uuid::new_v4().to_string().as_str()),
             food_name: payload.food_name,
             exp: payload.exp,
             user_id: user.user_id,
         }
+    }
+}
+
+impl FromRow<'_, MySqlRow> for Food {
+    fn from_row(row: &'_ MySqlRow) -> Result<Self, sqlx::Error> {
+        Ok(Food {
+            food_id: FoodId(row.try_get("food_id")?),
+            food_name: FoodName(row.try_get("food_name")?),
+            exp: row.try_get("exp")?,
+            user_id: UserId(row.try_get("user_id")?),
+        })
     }
 }
 
@@ -49,17 +96,17 @@ impl FoodsRepository {
                 VALUES (?, ?, ?, ?)
             "#,
         )
-        .bind(&payload.food_id)
-        .bind(&payload.food_name)
+        .bind::<String>(payload.food_id.clone().into())
+        .bind::<String>(payload.food_name.clone().into())
         .bind(payload.exp)
-        .bind(&payload.user_id)
+        .bind::<String>(payload.user_id.clone().into())
         .execute(&self.pool)
         .await
         .map_err(|_e| FoodsError::NotFound)?;
         Ok(())
     }
 
-    async fn execute_query(&self, id: &str) -> Result<Food, FoodsError> {
+    async fn execute_query(&self, id: &FoodId) -> Result<Food, FoodsError> {
         query_as::<_, Food>(
             r#"
                 SELECT food_id, food_name, exp, user_id
@@ -67,13 +114,13 @@ impl FoodsRepository {
                 WHERE food_id = ?
             "#,
         )
-        .bind(id)
+        .bind::<String>(id.clone().into())
         .fetch_one(&self.pool)
         .await
         .map_err(|_e| FoodsError::NotFound)
     }
 
-    async fn execute_query_all(&self, user_id: &str) -> Result<Vec<Food>, FoodsError> {
+    async fn execute_query_all(&self, user_id: &FoodId) -> Result<Vec<Food>, FoodsError> {
         query_as::<_, Food>(
             r#"
                 SELECT food_id, food_name, exp, user_id
@@ -81,7 +128,7 @@ impl FoodsRepository {
                 WHERE user_id = ?
             "#,
         )
-        .bind(user_id)
+        .bind::<String>(user_id.clone().into())
         .fetch_all(&self.pool)
         .await
         .map_err(|_e| FoodsError::NotFound)
@@ -96,23 +143,23 @@ impl FoodsRepository {
                 WHERE food_id = ?
             "#,
         )
-        .bind(&payload.food_name)
+        .bind::<String>(payload.food_name.clone().into())
         .bind(&payload.exp)
-        .bind(&payload.food_id)
+        .bind::<String>(payload.food_id.clone().into())
         .execute(&self.pool)
         .await
         .map_err(|_e| FoodsError::NotFound)?;
         Ok(())
     }
 
-    async fn execute_delete_query(&self, id: &str) -> Result<(), FoodsError> {
+    async fn execute_delete_query(&self, id: &FoodId) -> Result<(), FoodsError> {
         query(
             r#"
                 DELETE FROM food_table
                 WHERE food_id = ?
             "#,
         )
-        .bind(id)
+        .bind::<String>(id.clone().into())
         .execute(&self.pool)
         .await
         .map_err(|_e| FoodsError::NotFound)?;
@@ -127,7 +174,7 @@ pub enum FoodsError {
 }
 
 #[async_trait]
-impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository {
+impl<'a> RepositoryWriter<'a, '_, Food, FoodId> for FoodsRepository {
     type Output = Food;
     type Error = FoodsError;
 
@@ -137,34 +184,34 @@ impl<'a> RepositoryWriter<'a, '_, Food, String> for FoodsRepository {
         Ok(query_res)
     }
 
-    async fn update(&self, _id: &'a String, payload: &Food) -> Result<Self::Output, Self::Error> {
+    async fn update(&self, _id: &'a FoodId, payload: &Food) -> Result<Self::Output, Self::Error> {
         self.execute_update_query(payload).await?;
         let query_res = self.read(&payload.food_id).await.map_err(|e| e)?;
         Ok(query_res)
     }
 
-    async fn delete(&self, id: &'a String) -> Result<(), Self::Error> {
+    async fn delete(&self, id: &'a FoodId) -> Result<(), Self::Error> {
         self.execute_delete_query(id).await?;
         Ok(())
     }
 }
 
 #[async_trait]
-impl RepositoryTargetReader<String> for FoodsRepository {
+impl RepositoryTargetReader<FoodId> for FoodsRepository {
     type QueryRes = Food;
     type QueryErr = FoodsError;
 
-    async fn read(&self, id: &String) -> Result<Self::QueryRes, Self::QueryErr> {
+    async fn read(&self, id: &FoodId) -> Result<Self::QueryRes, Self::QueryErr> {
         self.execute_query(id).await
     }
 }
 
 #[async_trait]
-impl RepositoryAllReader<String> for FoodsRepository {
+impl RepositoryAllReader<FoodId> for FoodsRepository {
     type QueryRes = AllFoods;
     type QueryErr = FoodsError;
 
-    async fn read_all(&self, id: String) -> Result<Self::QueryRes, Self::QueryErr> {
+    async fn read_all(&self, id: FoodId) -> Result<Self::QueryRes, Self::QueryErr> {
         let foods = self.execute_query_all(&id).await?;
         Ok(AllFoods { foods })
     }
@@ -185,9 +232,9 @@ mod test {
     use chrono::NaiveDate;
     use sqlx::{query_as, MySql, MySqlPool, Pool};
 
-    use crate::{foods::Food, users::PubUserInfo};
+    use crate::{foods::Food, users::{PubUserInfo, UserId, UserName}};
 
-    use super::{CreateFoodPayload, FoodsRepository};
+    use super::{CreateFoodPayload, FoodId, FoodName, FoodsRepository};
 
     static USER_ID: &str = "test_user_id";
     static USER_NAME: &str = "test_user_name";
@@ -203,28 +250,30 @@ mod test {
 
     fn pub_user_info() -> PubUserInfo {
         PubUserInfo {
-            user_id: USER_ID.to_string(),
-            user_name: USER_NAME.to_string(),
+            user_id: UserId::from(USER_ID.to_string()),
+            user_name: UserName::from(USER_NAME.to_string()),
         }
     }
 
     fn create_food() -> CreateFoodPayload {
         CreateFoodPayload {
-            food_name: "test_food".to_string(),
+            food_name: FoodName::from("test_food"),
             exp: NaiveDate::from_ymd_opt(2025, 4, 8).unwrap_or_default(),
         }
     }
 
     fn new_update_food(old_food: &Food) -> Food {
+        let updated_food_name = format!("updated_{}", <FoodName as Into<String>>::into(old_food.food_name.clone()));
+
         Food {
             food_id: old_food.food_id.to_owned(),
-            food_name: format!("updated_{}", old_food.food_name),
+            food_name: FoodName::from(&updated_food_name),
             exp: old_food.exp,
-            user_id: old_food.user_id.to_string(),
+            user_id: old_food.user_id.clone()
         }
     }
 
-    async fn query_full_data(id: &str) -> Result<Food, Box<dyn std::error::Error>> {
+    async fn query_full_data(id: &FoodId) -> Result<Food, Box<dyn std::error::Error>> {
         let pool = set_up_db().await;
         let repo = FoodsRepository { pool };
 
@@ -234,7 +283,7 @@ mod test {
                 WHERE food_id = ?
             "#,
         )
-        .bind(id)
+        .bind::<String>(id.clone().into())
         .fetch_one(&repo.pool)
         .await?;
         Ok(res)
@@ -249,6 +298,7 @@ mod test {
         repo.execute_insert_query(&food).await.unwrap();
 
         let db_food = query_full_data(&food.food_id).await.unwrap();
+
         assert_eq!(db_food.food_id, food.food_id);
         assert_eq!(db_food.food_name, food.food_name);
         assert_eq!(db_food.exp, food.exp);
