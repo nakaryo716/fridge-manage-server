@@ -10,8 +10,8 @@ pub mod repo;
 #[derive(Debug, Clone, Serialize, FromRow, PartialEq)]
 pub struct UserId(pub(crate) String);
 
-impl From<String> for UserId {
-    fn from(value: String) -> Self {
+impl<T: ToString> From<T> for UserId {
+    fn from(value: T) -> Self {
         Self(value.to_string())
     }
 }
@@ -25,8 +25,8 @@ impl From<UserId> for String {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, PartialEq)]
 pub struct UserName(String);
 
-impl From<String> for UserName {
-    fn from(value: String) -> Self {
+impl<T: ToString> From<T> for UserName {
+    fn from(value: T) -> Self {
         Self(value.to_string())
     }
 }
@@ -40,8 +40,8 @@ impl From<UserName> for String {
 #[derive(Debug, Clone, FromRow, Deserialize, PartialEq)]
 pub struct Mail(String);
 
-impl From<String> for Mail {
-    fn from(value: String) -> Self {
+impl<T: ToString> From<T> for Mail {
+    fn from(value: T) -> Self {
         Self(value.to_string())
     }
 }
@@ -55,8 +55,8 @@ impl From<Mail> for String {
 #[derive(Debug, Clone, Deserialize, FromRow, PartialEq)]
 pub struct Password(String);
 
-impl From<String> for Password {
-    fn from(value: String) -> Self {
+impl<T: ToString> From<T> for Password {
+    fn from(value: T) -> Self {
         Self(value.to_string())
     }
 }
