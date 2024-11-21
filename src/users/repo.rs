@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sqlx::{MySql, Pool};
+use sqlx::{MySql, Pool, Type};
 
 use crate::{RepositoryTargetReader, RepositoryWriter};
 
@@ -16,14 +16,14 @@ impl UserRepository {
 }
 
 #[async_trait]
-impl<T> RepositoryTargetReader<T> for UserRepository 
+impl<'a, T> RepositoryTargetReader<'a, T> for UserRepository 
 where 
-    T: Into<String> + Clone + Send + Sync
+    T: Type<MySql> + sqlx::Encode<'a, sqlx::MySql> + Clone + Send + Sync
 {
     type QueryRes = PubUserInfo;
     type QueryErr = UserError;
 
-    async fn read(&self, id: &T) -> Result<Self::QueryRes, Self::QueryErr> {
+    async fn read(&self, id: &'a T) -> Result<Self::QueryRes, Self::QueryErr> {
         let query_res = sqlx::query_as(
             r#"
                 SELECT user_id, user_name
@@ -31,7 +31,7 @@ where
                 WHERE user_id = ?
             "#,
         )
-        .bind::<String>(id.clone().into())
+        .bind(id)
         .fetch_one(&self.pool)
         .await
         .map_err(|_e| UserError::NotFound)?;
@@ -51,10 +51,10 @@ impl<'a> RepositoryWriter<'a, '_, User, UserId> for UserRepository {
                 (user_id, user_name, mail, password) VALUES (?, ?, ?, ?)
             "#,
         )
-        .bind::<String>(payload.user_id.clone().into())
-        .bind::<String>(payload.user_name.clone().into())
-        .bind::<String>(payload.mail.clone().into())
-        .bind::<String>(payload.password.clone().into())
+        .bind(&payload.user_id)
+        .bind(&payload.user_name)
+        .bind(&payload.mail)
+        .bind(&payload.password)
         .execute(&self.pool)
         .await
         .map_err(|_e| UserError::NotFound)?;
