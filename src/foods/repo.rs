@@ -9,7 +9,11 @@ pub struct FoodsRepository {
     pool: Pool<MySql>,
 }
 
-impl FoodsRepository {}
+impl FoodsRepository {
+    pub(crate) fn new(pool: Pool<MySql>) -> Self {
+        Self { pool }
+    }
+}
 
 #[async_trait]
 impl<'a> RepositoryWriter<'a, '_, Food, FoodId> for FoodsRepository {
