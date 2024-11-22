@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{mysql::MySqlRow, types::chrono::NaiveDate, FromRow, Row};
+use sqlx::{mysql::MySqlRow, prelude::Type, types::chrono::NaiveDate, FromRow, Row};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -7,7 +7,8 @@ use crate::users::{PubUserInfo, UserId};
 
 mod repo;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct FoodId(String);
 
 impl From<FoodId> for String {
@@ -25,7 +26,8 @@ where
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct FoodName(String);
 
 impl From<FoodName> for String {
