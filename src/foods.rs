@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{mysql::MySqlRow, types::chrono::NaiveDate, FromRow, Row};
+use sqlx::{mysql::MySqlRow, prelude::Type, types::chrono::NaiveDate, FromRow, Row};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -7,7 +7,13 @@ use crate::users::{PubUserInfo, UserId};
 
 mod repo;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+static FOOD_ID_COLUMN: &'static str = "food_id";
+static FOOD_NAME_COLUMN: &'static str = "food_name";
+static FOOD_EXP_COLUMN: &'static str = "exp";
+static USER_ID_COLUMN: &'static str = "user_id";
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct FoodId(String);
 
 impl From<FoodId> for String {
@@ -25,7 +31,8 @@ where
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct FoodName(String);
 
 impl From<FoodName> for String {
@@ -71,10 +78,10 @@ impl Food {
 impl FromRow<'_, MySqlRow> for Food {
     fn from_row(row: &'_ MySqlRow) -> Result<Self, sqlx::Error> {
         Ok(Food {
-            food_id: FoodId(row.try_get("food_id")?),
-            food_name: FoodName(row.try_get("food_name")?),
-            exp: row.try_get("exp")?,
-            user_id: UserId(row.try_get("user_id")?),
+            food_id: FoodId(row.try_get(FOOD_ID_COLUMN)?),
+            food_name: FoodName(row.try_get(FOOD_NAME_COLUMN)?),
+            exp: row.try_get(FOOD_EXP_COLUMN)?,
+            user_id: UserId(row.try_get(USER_ID_COLUMN)?),
         })
     }
 }
