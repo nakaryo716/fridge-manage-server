@@ -13,26 +13,14 @@ impl UserRepository {
     pub(crate) fn new(pool: Pool<MySql>) -> Self {
         Self { pool }
     }
+}
 
-    async fn execute_insert_query(&self, payload: &User) -> Result<(), UserError> {
-        sqlx::query(
-            r#"
-                INSERT INTO user_table
-                (user_id, user_name, mail, password) VALUES (?, ?, ?, ?)
-            "#,
-        )
-        .bind::<String>(payload.user_id.clone().into())
-        .bind::<String>(payload.user_name.clone().into())
-        .bind::<String>(payload.mail.clone().into())
-        .bind::<String>(payload.password.clone().into())
-        .execute(&self.pool)
-        .await
-        .map_err(|_e| UserError::NotFound)?;
-        Ok(())
-    }
+#[async_trait]
+impl<'a> RepositoryTargetReader<'a, UserId> for UserRepository {
+    type QueryRes = PubUserInfo;
+    type QueryErr = UserError;
 
-    async fn execute_query(&self, id: &UserId) -> Result<PubUserInfo, UserError> {
-        println!("{:?}", id);
+    async fn read(&self, id: &'a UserId) -> Result<Self::QueryRes, Self::QueryErr> {
         let query_res = sqlx::query_as(
             r#"
                 SELECT user_id, user_name
@@ -40,14 +28,37 @@ impl UserRepository {
                 WHERE user_id = ?
             "#,
         )
-        .bind::<String>(id.clone().into())
+        .bind(id)
         .fetch_one(&self.pool)
         .await
         .map_err(|_e| UserError::NotFound)?;
         Ok(query_res)
     }
+}
 
-    async fn execute_update_query(&self, payload: &User) -> Result<(), UserError> {
+#[async_trait]
+impl<'a> RepositoryWriter<'a, '_, User, UserId> for UserRepository {
+    type Output = ();
+    type Error = UserError;
+
+    async fn insert(&self, payload: &User) -> Result<Self::Output, Self::Error> {
+        sqlx::query(
+            r#"
+                INSERT INTO user_table
+                (user_id, user_name, mail, password) VALUES (?, ?, ?, ?)
+            "#,
+        )
+        .bind(&payload.user_id)
+        .bind(&payload.user_name)
+        .bind(&payload.mail)
+        .bind(&payload.password)
+        .execute(&self.pool)
+        .await
+        .map_err(|_e| UserError::NotFound)?;
+        Ok(())
+    }
+
+    async fn update(&self, _id: &'a UserId, payload: &User) -> Result<Self::Output, Self::Error> {
         sqlx::query(
             r#"
                 UPDATE user_table
@@ -58,59 +69,28 @@ impl UserRepository {
                 WHERE user_id = ?
             "#,
         )
-        .bind::<String>(payload.user_name.clone().into())
-        .bind::<String>(payload.mail.clone().into())
-        .bind::<String>(payload.password.clone().into())
-        .bind::<String>(payload.user_id.clone().into())
+        .bind(&payload.user_name)
+        .bind(&payload.mail)
+        .bind(&payload.password)
+        .bind(&payload.user_id)
         .execute(&self.pool)
         .await
         .map_err(|_e| UserError::NotFound)?;
         Ok(())
     }
-
-    async fn execute_delete_query(&self, id: &UserId) -> Result<(), UserError> {
+    
+    async fn delete(&self, id: &'a UserId) -> Result<(), Self::Error> {
         sqlx::query(
             r#"
                 DELETE FROM user_table
                 WHERE user_id = ?
             "#,
         )
-        .bind::<String>(id.clone().into())
+        .bind(id)
         .execute(&self.pool)
         .await
         .map_err(|_e| UserError::NotFound)?;
         Ok(())
-    }
-}
-
-#[async_trait]
-impl RepositoryTargetReader<UserId> for UserRepository {
-    type QueryRes = PubUserInfo;
-    type QueryErr = UserError;
-
-    async fn read(&self, id: &UserId) -> Result<Self::QueryRes, Self::QueryErr> {
-        self.execute_query(id).await
-    }
-}
-
-#[async_trait]
-impl<'a> RepositoryWriter<'a, '_, User, UserId> for UserRepository {
-    type Output = PubUserInfo;
-    type Error = UserError;
-
-    async fn insert(&self, payload: &User) -> Result<Self::Output, Self::Error> {
-        self.execute_insert_query(payload).await?;
-        let query_res = self.read(&payload.user_id).await?;
-        Ok(query_res)
-    }
-
-    async fn update(&self, _id: &'a UserId, payload: &User) -> Result<Self::Output, Self::Error> {
-        self.execute_update_query(payload).await?;
-        let query_res = self.read(&payload.user_id).await?;
-        Ok(query_res)
-    }
-    async fn delete(&self, id: &'a UserId) -> Result<(), Self::Error> {
-        self.execute_delete_query(id).await
     }
 }
 

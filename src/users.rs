@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::Type;
 use sqlx::{mysql::MySqlRow, prelude::FromRow, Row};
 use thiserror::Error;
 use uuid::Uuid;
@@ -7,7 +8,8 @@ use crate::util::HashFunc;
 
 pub mod repo;
 
-#[derive(Debug, Clone, Serialize, FromRow, PartialEq)]
+#[derive(Debug, Clone, Serialize, FromRow, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct UserId(pub(crate) String);
 
 impl<T: ToString> From<T> for UserId {
@@ -22,7 +24,8 @@ impl From<UserId> for String {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct UserName(String);
 
 impl<T: ToString> From<T> for UserName {
@@ -37,7 +40,8 @@ impl From<UserName> for String {
     }
 }
 
-#[derive(Debug, Clone, FromRow, Deserialize, PartialEq)]
+#[derive(Debug, Clone, FromRow, Deserialize, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct Mail(String);
 
 impl<T: ToString> From<T> for Mail {
@@ -52,7 +56,8 @@ impl From<Mail> for String {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, FromRow, PartialEq)]
+#[derive(Debug, Clone, Deserialize, FromRow, PartialEq, Type)]
+#[sqlx(transparent)]
 pub struct Password(String);
 
 impl<T: ToString> From<T> for Password {
