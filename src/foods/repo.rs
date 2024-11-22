@@ -92,11 +92,14 @@ impl<'a> RepositoryTargetReader<'a, FoodId> for FoodsRepository {
 }
 
 #[async_trait]
-impl RepositoryAllReader<UserId> for FoodsRepository {
+impl<T> RepositoryAllReader<T> for FoodsRepository 
+where 
+    T: Into<UserId> + Clone + Send + Sync + 'static,
+{
     type QueryRes = AllFoods;
     type QueryErr = FoodsError;
 
-    async fn read_all(&self, id: UserId) -> Result<Self::QueryRes, Self::QueryErr> {
+    async fn read_all(&self, id: T) -> Result<Self::QueryRes, Self::QueryErr> {
         let foods = query_as::<_, Food>(
             r#"
                 SELECT food_id, food_name, exp, user_id
@@ -104,7 +107,7 @@ impl RepositoryAllReader<UserId> for FoodsRepository {
                 WHERE user_id = ?
             "#,
         )
-        .bind(id)
+        .bind::<UserId>(id.clone().into())
         .fetch_all(&self.pool)
         .await
         .map_err(|_e| FoodsError::NotFound)?;
